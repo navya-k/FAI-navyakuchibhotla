@@ -1,0 +1,91 @@
+package pacman.controllers.navya_kuchibhotla; 
+
+import pacman.controllers.Controller;
+import pacman.game.Game;
+import pacman.game.Constants.GHOST; 
+
+import static pacman.game.Constants.*;
+
+public class Final_Submission_Controller extends Controller<MOVE> {
+
+	private int c_pill, c_pill_dist; 
+	private int[] c_pill_path;
+	private Boolean ghostFoundInPath, edibleGhostFound; 
+	private int closestGhostDist;
+	private GHOST closestGhost;
+	static int DIST_MARGIN = 5;
+	public MOVE getMove(Game game, long timeDue) {
+
+		int current = game.getPacmanCurrentNodeIndex();
+
+		gatherData(game); 
+		int ghostIndex;
+		// ghost is found in path so run away unless it is edible
+		if(edibleGhostFound) {
+			 ghostIndex = game.getGhostCurrentNodeIndex(closestGhost);
+			return game.getNextMoveTowardsTarget(current, ghostIndex, DM.PATH);
+		}
+		else if (ghostFoundInPath) {
+			 ghostIndex = game.getGhostCurrentNodeIndex(closestGhost);
+			return game.getNextMoveAwayFromTarget(current, ghostIndex, DM.PATH);
+		}
+		else 
+			return game.getNextMoveTowardsTarget(current, c_pill, DM.PATH);
+
+	}
+
+	private void gatherData(Game game) { 
+
+		int current = game.getPacmanCurrentNodeIndex();
+
+		int[] pills = game.getActivePillsIndices();
+		int[] powerPills = game.getActivePowerPillsIndices(); 
+
+		int[] targetsArray = new int[pills.length + powerPills.length];
+		System.arraycopy(pills, 0, targetsArray, 0, pills.length);
+		System.arraycopy(powerPills, 0, targetsArray, pills.length, powerPills.length);  
+
+		c_pill = game.getClosestNodeIndexFromNodeIndex(current, targetsArray, DM.PATH); 
+		c_pill_path = game.getShortestPath (current, c_pill);  
+		c_pill_dist = game.getShortestPathDistance(current, c_pill);
+		edibleGhostFound = edibleGhostFound(current, game);
+		ghostFoundInPath = ghostFoundInPath(current, game,c_pill_path);
+
+	}
+
+	private Boolean ghostFoundInPath(int current, Game game, int[] path) {
+		Boolean ghostFound = false; 
+		for (GHOST ghost : GHOST.values()) {
+			int ghostIndex = game.getGhostCurrentNodeIndex(ghost);
+			for(int i= 0; i < path.length; i++) {
+				if(game.getGhostLairTime(ghost) == 0 &&  game.getGhostEdibleTime(ghost) == 0 &&
+						(path[i] == ghostIndex || game.getShortestPathDistance(current, ghostIndex) <= DIST_MARGIN )){
+					ghostFound = true;
+					closestGhost = ghost;
+					break;
+				}
+			}
+		}
+		return ghostFound;	
+	} 
+	// Find if there is an edible ghost in the vicinity
+	private Boolean edibleGhostFound(int current, Game game) {
+
+		closestGhostDist = Integer.MAX_VALUE;
+		int tmp; 
+		for (GHOST ghost : GHOST.values()) {
+			if (game.getGhostLairTime(ghost) == 0) {
+				tmp = game.getShortestPathDistance(current, game.getGhostCurrentNodeIndex(ghost));
+				if (tmp < closestGhostDist)
+					closestGhostDist = tmp;
+				closestGhost = ghost;
+			}
+		}
+		if(closestGhost != null && game.isGhostEdible(closestGhost)){
+			int ghostPathDist = game.getShortestPathDistance(current, game.getGhostCurrentNodeIndex(closestGhost));
+			if( game.getGhostEdibleTime(closestGhost) >= ghostPathDist && ghostPathDist <= (c_pill_dist + DIST_MARGIN))
+				return true;
+		}
+		return false;
+	} 
+}

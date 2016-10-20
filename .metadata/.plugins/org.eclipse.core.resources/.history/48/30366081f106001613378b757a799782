@@ -1,0 +1,97 @@
+package pacman.controllers.navya_kuchibhotla; 
+
+import pacman.controllers.Controller;
+import pacman.game.Game;
+import pacman.game.Constants.GHOST;
+
+import java.util.ArrayList;
+
+import static pacman.game.Constants.*;
+
+/**
+ * This implements a controller with K Nearest Neighbor algorithm
+ */
+public class Final_Submission_Controller extends Controller<MOVE> {
+
+
+	private GHOST closestGhost;
+	private int closestPill;
+	private int closestGhostDist; 
+	private int[] c_pill_path;
+	private Boolean decision; 
+	static int MIN_BOUND = 5;
+
+	/**
+	 * Evaluates current game state, then uses training data to decide what to do
+	 *
+	 * @param game    A copy of the current game
+	 * @param timeDue The time the next move is due
+	 * @return move decision
+	 */
+	public MOVE getMove(Game game, long timeDue) {
+
+		int current = game.getPacmanCurrentNodeIndex();
+
+		gatherData(game); 
+
+		if (decision == true) { 
+			return game.getNextMoveAwayFromTarget(current,game.getGhostCurrentNodeIndex(closestGhost), DM.PATH);
+		}
+		else
+			//run to nearest pill
+			return game.getNextMoveTowardsTarget(current, closestPill, DM.PATH);
+
+	}
+
+	private void gatherData(Game game) {
+		//get distance of nearest non-edible ghost and distance to nearest pill
+
+		int current = game.getPacmanCurrentNodeIndex();
+
+		int[] pills = game.getActivePillsIndices();
+		int[] powerPills = game.getActivePowerPillsIndices(); 
+
+		int[] targetsArray = new int[pills.length + powerPills.length];
+		System.arraycopy(pills, 0, targetsArray, 0, pills.length);
+		System.arraycopy(powerPills, 0, targetsArray, pills.length, powerPills.length); 
+
+		//return the next direction once the closest target has been identified
+		closestPill = game.getClosestNodeIndexFromNodeIndex(current, targetsArray, DM.PATH); 
+		c_pill_path = game.getShortestPath (current, closestPill);  
+		 decision = ghostFoundInPath(current,game,c_pill_path);
+		
+	}
+
+	private Boolean ghostFoundInPath(int current,Game game, int[] path) {
+		Boolean ghostFound = false; 
+
+		findClosestGhost(current,game);
+		int ghostIndex = 0;
+		if(closestGhost != null ) 
+			ghostIndex = game.getGhostCurrentNodeIndex(closestGhost);
+		for(int i= 0; i < path.length; i++) {
+
+			if(game.getGhostLairTime(closestGhost) == 0 && game.getDistance(path[i], ghostIndex, DM.PATH) <= MIN_BOUND){
+				ghostFound = true;
+				break;
+			}
+
+		}
+		return ghostFound;	
+	}
+	
+	private void findClosestGhost(int current, Game game) {
+		//Get distance from closest ghost
+		closestGhostDist = Integer.MAX_VALUE;
+		int tmp;
+		//NOTE: this for loop is adapted from the StarterPacMan controller
+		for (GHOST ghost : GHOST.values()) {
+			if (game.getGhostLairTime(ghost) == 0) {
+				tmp = game.getShortestPathDistance(current, game.getGhostCurrentNodeIndex(ghost));
+				if (tmp < closestGhostDist)
+					closestGhostDist = tmp;
+				closestGhost = ghost;
+			}
+		}
+	}
+}

@@ -1,0 +1,225 @@
+package pacman.controllers.navya_kuchibhotla;
+
+import pacman.controllers.Controller;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.StringTokenizer;
+import pacman.game.Game;
+
+import java.util.ArrayList;
+
+import static pacman.game.Constants.*;
+
+
+public class K_Nearest_Controller extends Controller<MOVE>{
+	private GHOST closestGhost;
+	private int closestPill;
+	private int closestGhostDist;
+	private int closestPillDist;
+	private int[] closestPillPath;
+	private Boolean ghostInPath;
+	private static int K = 5;
+
+
+	static String[][] currentDirectionRequestsArray;
+	private static int[][] INSTANCES;
+
+	/**
+	 * Evaluates current game state, then uses training data to decide what to do
+	 *
+	 * @param game    A copy of the current game
+	 * @param timeDue The time the next move is due
+	 * @return move decision
+	 */
+	public MOVE getMove(Game game, long timeDue){
+
+
+		int current = game.getPacmanCurrentNodeIndex(); 
+		try{
+			INSTANCES = createRequestArray();
+		}catch(Exception ex){
+			System.out.println("Exception while reading file: " + ex);
+		}
+		System.out.println("instances  is " + INSTANCES);
+		gatherData(game);
+		int decision = evaluateDistances();
+
+		if (decision == 0)
+			//run from nearest ghost
+			return game.getNextMoveAwayFromTarget(current, closestPill , DM.PATH);
+		else
+			//run to nearest pill
+			return game.getNextMoveTowardsTarget(current, closestPill, DM.PATH);
+
+	}
+
+
+
+	/**
+	 * Evaluate which K instances are nearest the current game state
+	 *
+	 * @return array with K nearest instances
+	 */
+	private int evaluateDistances() {
+		//given closest ghost and pill evaluate which instances are closest K
+		int[] distances = new int[K];
+		int[] indexes = new int[K];
+		int i;
+
+		//initialize distances
+		for (i = 0; i < K; i++)
+			distances[i] = Integer.MAX_VALUE;
+
+		System.out.println("closest ghost dis  " + closestGhostDist + " and closes pill dist is " + closestPillDist);
+		//calculate distances from current game to each instance
+		//distance is:
+		// 		sqrt( (difference of the ghost distance)^2 + (difference of pill distance)^2) )
+		int dist;
+		for (i = 0; i < INSTANCES.length; i++) {
+			dist = (int)(INSTANCES[i][1] - closestPillDist);
+			System.out.println("dist at " + i + " is " + dist);
+			if (dist <= distances[0]) {
+				System.out.println("replace distances 0 " + i + " with " + dist);
+				distances[4] = distances[3];
+				distances[3] = distances[2];
+				distances[2] = distances[1];
+				distances[1] = distances[0];
+				distances[0] = dist;
+				indexes[2] = indexes[1];
+				indexes[1] = indexes[0];
+				indexes[0] = i;
+			} else if (dist <= distances[1]) {
+				System.out.println("replace distances 1 " + i + " with " + dist);
+				distances[4] = distances[3];
+				distances[3] = distances[2];
+				distances[2] = distances[1];
+				distances[1] = dist;
+				indexes[2] = indexes[1];
+				indexes[1] = i;
+			} else if (dist <= distances[2]) {
+				System.out.println("replace distances 2 " + i + " with " + dist);
+				distances[4] = distances[3];
+				distances[3] = distances[2];
+				distances[2] = dist;
+				indexes[2] = i;
+			}
+			else if (dist <= distances[3]) {
+				System.out.println("replace distances 3 " + i + " with " + dist);
+				distances[4] = distances[3];
+				distances[3] =  dist;
+				indexes[3] = i;
+			}
+			else if (dist <= distances[4]) {
+				System.out.println("replace distances 4 " + i + " with " + dist);
+				distances[4] =  dist;
+				indexes[4] = i;
+			}
+		}
+
+		//add decisions of each of the K nearest instances
+		// return that sum divided by K
+		int sum = 0;
+		for (i = 0; i < K; i++) {
+			sum += INSTANCES[indexes[i]][2];
+		}
+
+		//if 0, then run from nearest ghost
+		//if 1, then run to nearest pill
+		System.out.println("sum is " + sum + "and return value is " + sum/K);
+		return Math.round(sum / K);
+	}
+
+	/**
+	 * Evaluates game state
+	 * Gets distance of the closest ghost and closest pill
+	 *
+	 * @param game
+	 */
+	private void gatherData(Game game) {
+		//get distance of nearest non-edible ghost and distance to nearest pill
+
+		int current = game.getPacmanCurrentNodeIndex();
+
+		//Get distance of nearest pill (normal or power)
+		//NOTE: this section is also adapted from the StarterPacMan controller
+		int[] pills = game.getActivePillsIndices();
+		int[] powerPills = game.getActivePowerPillsIndices();
+
+		ArrayList<Integer> targets = new ArrayList<Integer>();
+
+		for (int i = 0; i < pills.length; i++)   
+			targets.add(pills[i]);
+
+		for (int i = 0; i < powerPills.length; i++)
+			targets.add(powerPills[i]);
+
+		int[] targetsArray = new int[targets.size()];        //convert from ArrayList to array
+
+		for (int i = 0; i < targetsArray.length; i++)
+			targetsArray[i] = targets.get(i);
+
+		//return the next direction once the closest target has been identified
+		closestPill = game.getClosestNodeIndexFromNodeIndex(current, targetsArray, DM.PATH);
+		closestPillPath = game.getShortestPath (current, closestPill); 
+		closestPillDist = game.getShortestPathDistance(current, closestPill);
+
+		ghostInPath = ghostFoundInPath(game,game.getShortestPath(current, closestPill));
+	}
+
+	/**
+	 * Evaluates game state
+	 * Gets distance of the closest ghost and closest pill
+	 *
+	 * @param game
+	 */
+	private Boolean ghostFoundInPath(Game game, int[] path) {
+		Boolean ghostFound = false;
+		//NOTE: this for loop is adapted from the StarterPacMan controller
+		for (GHOST ghost : GHOST.values()) {
+			int ghostIndex = game.getGhostCurrentNodeIndex(ghost);
+
+			for(int i= 0; i < path.length; i++) {
+				if(path[i] == ghostIndex){
+					ghostFound = true;
+					break;
+				}
+			}
+
+		}
+		return ghostFound;	
+
+	}
+
+	private static int[][] createRequestArray() throws IOException
+	{
+		String s="";
+		int c; 
+		// Take input from the file
+		FileInputStream fs= new FileInputStream("Training_Data.txt");
+		while((c=fs.read())!=-1)
+			s+=Character.toString((char)c);
+
+		//Tokenize Input
+		StringTokenizer strTokens=new StringTokenizer(s,"|\n\r",false);
+
+		// count number of requests
+		int numberOfRequests=(strTokens.countTokens())/3;
+		System.out.println("no of req " + numberOfRequests);
+		// define array sizes
+		int[][] tempArray=new int[numberOfRequests][3];
+		currentDirectionRequestsArray=new String[numberOfRequests][3];
+
+		//store input in 2D request array
+		for(int i=0;i<numberOfRequests;i++)
+		{
+			for(int j=0;j<3;j++)
+			{
+				if(strTokens.hasMoreTokens())
+					tempArray[i][j]=Integer.parseInt(strTokens.nextToken());
+			}
+		}
+		//fs.close();
+		return tempArray;
+
+	}
+}

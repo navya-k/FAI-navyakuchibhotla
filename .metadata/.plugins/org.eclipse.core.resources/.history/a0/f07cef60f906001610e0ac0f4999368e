@@ -1,0 +1,83 @@
+package pacman.controllers.navya_kuchibhotla; 
+
+import pacman.controllers.Controller;
+import pacman.game.Game;
+import pacman.game.Constants.GHOST; 
+
+import static pacman.game.Constants.*;
+ 
+public class Final_Submission_Controller extends Controller<MOVE> {
+
+	private int c_pill; 
+	private int[] c_pill_path;
+	private Boolean decision, eatGhost; 
+	private int closestGhostDist;
+	private GHOST closestGhost;
+	
+	public MOVE getMove(Game game, long timeDue) {
+
+		int current = game.getPacmanCurrentNodeIndex();
+
+		gatherData(game); 
+
+		// ghost is found in path so run away
+		if(eatGhost) {
+			return game.getNextMoveTowardsTarget(current, game.getGhostCurrentNodeIndex(closestGhost), DM.PATH);
+		}
+		else if (decision) {
+			return game.getNextMoveAwayFromTarget(current,c_pill, DM.PATH);
+		}
+		else 
+			return game.getNextMoveTowardsTarget(current, c_pill, DM.PATH);
+
+	}
+
+	private void gatherData(Game game) {
+		//get distance of nearest non-edible ghost and distance to nearest pill
+
+		int current = game.getPacmanCurrentNodeIndex();
+
+		int[] pills = game.getActivePillsIndices();
+		int[] powerPills = game.getActivePowerPillsIndices(); 
+
+		int[] targetsArray = new int[pills.length + powerPills.length];
+		System.arraycopy(pills, 0, targetsArray, 0, pills.length);
+		System.arraycopy(powerPills, 0, targetsArray, pills.length, powerPills.length);  
+		
+		c_pill = game.getClosestNodeIndexFromNodeIndex(current, targetsArray, DM.PATH); 
+		c_pill_path = game.getShortestPath (current, c_pill);  
+		eatGhost = edibleGhostFound(current, game);
+		decision = ghostFoundInPath(game,c_pill_path);
+		
+	}
+
+	private Boolean ghostFoundInPath(Game game, int[] path) {
+		Boolean ghostFound = false; 
+		for (GHOST ghost : GHOST.values()) {
+			int ghostIndex = game.getGhostCurrentNodeIndex(ghost);
+			for(int i= 0; i < path.length; i++) {
+				if(path[i] == ghostIndex){
+					ghostFound = true;
+					break;
+				}
+			}
+		}
+		return ghostFound;	
+	} 
+	private Boolean edibleGhostFound(int current, Game game) {
+		 //Get distance from closest ghost
+        closestGhostDist = Integer.MAX_VALUE;
+        int tmp;
+        //NOTE: this for loop is adapted from the StarterPacMan controller
+        for (GHOST ghost : GHOST.values()) {
+            if (game.getGhostEdibleTime(ghost) >= 5 && game.getGhostLairTime(ghost) == 0) {
+                tmp = game.getShortestPathDistance(current, game.getGhostCurrentNodeIndex(ghost));
+                if (tmp < closestGhostDist)
+                    closestGhostDist = tmp;
+                closestGhost = ghost;
+            }
+        }
+        if(closestGhost != null) return true;
+        return false;
+	} 
+}

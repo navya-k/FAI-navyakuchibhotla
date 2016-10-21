@@ -11,3 +11,6 @@ Controllers Implement the following algorithms :
 6. MiniMax Algorithm - MinMax_Controller
 7. Simulated Annealing - Simulated_Annealing_Controller
 8. Custom Algorithm (variation of KNN) - Final_Submission_Controller
+
+
+This repository also includes a paper providing a comparative study of all the algorithms implemented.
